@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class UserService {
@@ -27,8 +28,21 @@ public class UserService {
         user.setLastName("LastName" + random.nextInt(1000));
         user.setAge(random.nextInt(80) + 18); // Random age between 18 and 98
 
-        // Save to Firebase
-        databaseReference.child(user.getId()).setValueAsync(user);
+        // Save to Firebase and wait for completion
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        databaseReference.child(user.getId()).setValue(user, (error, ref) -> {
+            if (error != null) {
+                future.completeExceptionally(error.toException());
+            } else {
+                future.complete(null);
+            }
+        });
+        
+        try {
+            future.get(); // Wait for the operation to complete
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save user to Firebase", e);
+        }
         
         return user;
     }
